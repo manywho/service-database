@@ -45,6 +45,7 @@ public class DatabaseLoadService {
     }
 
     public Cursor<Map<String, java.lang.Object>> loadResults(Table table, ListFilter listFilter) {
+        // TODO: Somehow we have to make this filtering dynamic as we can't declaratively construct the filter
         return table.limit(listFilter.getLimit())
                 .map(object -> {
                     // TODO: Make this check against the stored predefined schema to see if the field is a date

@@ -36,7 +36,8 @@ public class DatabaseSaveService {
                 return Float.parseFloat(contentValue);
             case List:
             case Object:
-                throw new Exception("Saving lists or objects is not currently supported");
+                // We do not store objects and lists in the object, we store those separately
+                return null;
             case Content:
             case Password:
             case String:

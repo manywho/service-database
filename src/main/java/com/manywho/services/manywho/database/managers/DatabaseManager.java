@@ -8,6 +8,7 @@ import com.manywho.services.manywho.database.entities.Schema;
 import com.manywho.services.manywho.database.services.DatabaseLoadService;
 import com.manywho.services.manywho.database.services.DatabaseSaveService;
 import com.manywho.services.manywho.database.services.DatabaseService;
+import com.manywho.services.manywho.database.services.DescribeService;
 import com.rethinkdb.gen.ast.Db;
 import com.rethinkdb.gen.ast.Table;
 import com.rethinkdb.net.Cursor;
@@ -16,6 +17,9 @@ import javax.inject.Inject;
 import java.util.Map;
 
 public class DatabaseManager {
+    @Inject
+    private DescribeService describeService;
+
     @Inject
     private DatabaseService databaseService;
 
@@ -26,7 +30,7 @@ public class DatabaseManager {
     private DatabaseSaveService databaseSaveService;
 
     public ObjectDataResponse loadData(AuthenticatedWho authenticatedWho, ObjectDataRequest objectDataRequest) throws Exception {
-        String databaseName = authenticatedWho.getManyWhoTenantId().replace("-", "_");
+        String databaseName = describeService.getDatabaseName(authenticatedWho);
 
         String tableName = objectDataRequest.getObjectDataType().getDeveloperName();
 
@@ -44,13 +48,14 @@ public class DatabaseManager {
     }
 
     public ObjectDataResponse saveData(AuthenticatedWho authenticatedWho, ObjectDataRequest objectDataRequest) throws Exception {
-        String databaseName = authenticatedWho.getManyWhoTenantId().replace("-", "_");
+        String databaseName = describeService.getDatabaseName(authenticatedWho);
 
         // Fetch the needed database object
         Db database = databaseService.loadTenantDatabase(databaseName);
 
         // Loop over all the given objects and save them
         // TODO: Check with Steve if there is a better way to block updates on a field
+        // TODO: If an object property contains a list or object, that needs to be stored in a separate table and schema
         objectDataRequest.getObjectData().stream()
                 .filter(object -> !object.getDeveloperName().equalsIgnoreCase("ID"))
                 .forEach(Throwing.consumer(object -> {

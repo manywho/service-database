@@ -1,14 +1,15 @@
 package com.manywho.services.manywho.database.managers;
 
-import com.manywho.sdk.entities.draw.elements.type.*;
+import com.manywho.sdk.entities.draw.elements.type.TypeElement;
+import com.manywho.sdk.entities.draw.elements.type.TypeElementBinding;
+import com.manywho.sdk.entities.draw.elements.type.TypeElementBindingCollection;
+import com.manywho.sdk.entities.draw.elements.type.TypeElementPropertyBinding;
 import com.manywho.sdk.entities.security.AuthenticatedWho;
 import com.manywho.services.manywho.database.services.DescribeService;
-import org.apache.commons.lang3.StringUtils;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class DescribeManager {
@@ -26,8 +27,17 @@ public class DescribeManager {
         return typeElementPropertyBindings;
     }
 
-    public List<TypeElementBinding> describeTables(AuthenticatedWho authenticatedWho) {
-        String databaseName = authenticatedWho.getManyWhoTenantId().replace("-", "_");
+    public List<TypeElementBinding> describeTables(AuthenticatedWho authenticatedWho) throws Exception {
+        if (authenticatedWho == null) {
+            throw new Exception(("The AuthenticatedWho object cannot be null."));
+        }
+
+        if (authenticatedWho.getManyWhoTenantId() == null ||
+                authenticatedWho.getManyWhoTenantId().isEmpty() == true) {
+            throw new Exception("The AuthenticatedWho.ManyWhoTenantId cannot be null or blank.");
+        }
+
+        String databaseName = describeService.getDatabaseName(authenticatedWho);
 
         // Check if the tenant's database exists
         boolean tenantDatabaseExists = describeService.doesTenantDatabaseExist(databaseName);
@@ -44,39 +54,40 @@ public class DescribeManager {
     }
 
     public TypeElement describeBinding(AuthenticatedWho authenticatedWho, TypeElement typeElement) throws Exception {
-        String databaseName = authenticatedWho.getManyWhoTenantId().replace("-", "_");
+        if (authenticatedWho == null) {
+            throw new Exception(("The AuthenticatedWho object cannot be null."));
+        }
+
+        if (authenticatedWho.getManyWhoTenantId() == null ||
+                authenticatedWho.getManyWhoTenantId().isEmpty() == true) {
+            throw new Exception("The AuthenticatedWho.ManyWhoTenantId cannot be null or blank.");
+        }
+
+        if (typeElement == null) {
+            throw new Exception("The TypeElement object cannot be null.");
+        }
+
+        // Create a safe binding from the type
+        TypeElementBinding typeElementBinding = describeService.generateBinding(typeElement);
+
+        // Assign the binding to the type - removing any existing bindings
+        typeElement.setBindings(new TypeElementBindingCollection());
+        typeElement.getBindings().add(typeElementBinding);
+
+        // Remove the service element id from the Type as we don't want it to be managed by this service (as it will be
+        // deleted on a service refresh and also not be editable in the draw tool
+        typeElement.setServiceElementId(null);
+
+        String databaseName = describeService.getDatabaseName(authenticatedWho);
 
         // Update the current schema if one already exists, otherwise create one
-        boolean tenantTableExists = describeService.doesTenantTableExist(databaseName, typeElement.getDeveloperName());
+        boolean tenantTableExists = describeService.doesTenantTableExist(databaseName, typeElementBinding.getDatabaseTableName());
         if (tenantTableExists) {
-            describeService.updateTenantTableSchema(databaseName, typeElement.getDeveloperName(), typeElement.getProperties());
+            describeService.updateTenantTableSchema(databaseName, typeElementBinding.getDatabaseTableName(), typeElementBinding.getPropertyBindings());
         } else {
-            describeService.createTenantTable(databaseName, typeElement.getDeveloperName());
-            describeService.createTenantTableSchema(databaseName, typeElement.getDeveloperName(), typeElement.getProperties());
+            describeService.createTenantTable(databaseName, typeElementBinding.getDatabaseTableName());
+            describeService.createTenantTableSchema(databaseName, typeElementBinding.getDatabaseTableName(), typeElementBinding.getPropertyBindings());
         }
-
-        TypeElementPropertyBindingCollection typeElementPropertyBindings = new TypeElementPropertyBindingCollection();
-
-        for (TypeElementProperty property : typeElement.getProperties()) {
-            TypeElementPropertyBinding typeElementPropertyBinding = new TypeElementPropertyBinding(property.getDeveloperName(), property.getDeveloperName());
-
-            // TODO: THIS SHOULD DEFINITELY NOT BE IN THE SERVICE, YO
-            if (StringUtils.isEmpty(property.getId())) {
-               property.setId(UUID.randomUUID().toString());
-            }
-
-            typeElementPropertyBinding.setTypeElementPropertyId(property.getId());
-
-            typeElementPropertyBindings.add(typeElementPropertyBinding);
-        }
-
-        TypeElementBinding typeElementBinding = new TypeElementBinding(typeElement.getDeveloperName(), typeElement.getDeveloperName(), typeElement.getDeveloperName(), typeElementPropertyBindings);
-        typeElementBinding.setServiceElementId(typeElement.getServiceElementId());
-
-        TypeElementBindingCollection bindings = new TypeElementBindingCollection();
-        bindings.add(typeElementBinding);
-
-        typeElement.setBindings(bindings);
 
         return typeElement;
     }
