@@ -35,7 +35,7 @@
         <dependency>
             <groupId>com.rethinkdb</groupId>
             <artifactId>rethinkdb-driver</artifactId>
-            <version>2.2-b1-SNAPSHOT</version>
+            <version>2.4.4</version>
         </dependency>
     </dependencies>
 </project>
